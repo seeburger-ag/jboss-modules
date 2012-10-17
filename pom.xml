@@ -36,6 +36,12 @@
         <version>7</version>
     </parent>
 
+    <scm>
+        <connection>scm:git:git@github.com:seeburger-ag/jboss-modules.git</connection>
+        <developerConnection>scm:git:git@github.com:seeburger-ag/jboss-modules.git</developerConnection>
+        <url>https://github.com/seeburger-ag/jboss-modules</url>
+    </scm>
+
     <properties>
         <skip.enforcer>false</skip.enforcer>
     </properties>
