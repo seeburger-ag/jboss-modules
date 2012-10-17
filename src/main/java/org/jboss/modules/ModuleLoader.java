@@ -279,9 +279,7 @@ public abstract class ModuleLoader {
                 log.trace("Module %s not found from %s", identifier, this);
                 return null;
             }
-            /*if (! moduleSpec.getModuleIdentifier().equals(identifier)) {*/
-            /** SEEBURGER AG special identification logic */
-            if (!  isValidModuleAlias(identifier, moduleSpec)) {
+            if (! moduleSpec.getModuleIdentifier().equals(identifier)) {
                 throw new ModuleLoadException("Module loader found a module with the wrong name");
             }
             final Module module;
@@ -309,85 +307,6 @@ public abstract class ModuleLoader {
             }
         }
     }
-
-
-    /**
-     * SEEBURGER AG special: for OSGi bundles we registered an alias made from "deployment." + name of the
-     * deployment unit as the servicename of the module spec service. So the module loader is made more
-     * tolerant to also accept OSGi deployments by name
-     *
-     * @param lookedFor
-     * @param moduleSpecIdentifier
-     * @return
-     */
-    private boolean isValidModuleAlias(ModuleIdentifier lookedFor, ModuleSpec moduleSpec)
-    {
-        if (moduleSpec.getModuleIdentifier().equals(lookedFor)){
-            return true;
-        }
-        else if( moduleSpec instanceof ConcreteModuleSpec){
-            ConcreteModuleSpec concreteSpec = (ConcreteModuleSpec)moduleSpec;
-            ModuleClassLoaderFactory clFactory = concreteSpec.getModuleClassLoaderFactory();
-            if( clFactory != null ){
-                if( clFactory.getClass().getName().contains("HostBundleClassLoader")){
-                    // this is an OSGi host bundle factory -- create an instance with of the classloader
-                    // to access the bundle-object and the location information therein
-                    ModuleClassLoader hostBundleClassLoader = clFactory.create(new ModuleClassLoader.Configuration(null,
-                                                                                                                   concreteSpec.getAssertionSetting(),
-                                                                                                                   concreteSpec.getResourceLoaders(),
-                                                                                                                   concreteSpec.getClassFileTransformer()));
-                    if( hostBundleClassLoader != null ){
-                        Object bundle = safeInvoke(hostBundleClassLoader, "getBundle");
-                        if( bundle != null ){
-                            String location = (String)safeInvoke(bundle, "getLocation");
-                            if( lookedFor.getName().endsWith(location) ){
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return false;
-
-        /*
-        if( lookedFor.getName().contains("seeburger") )
-        {
-            if( lookedFor.getName().equals(moduleSpecIdentifier.getName()) )
-            {
-                String moduleSlot = moduleSpecIdentifier.getSlot();
-                if( moduleSlot != null && lookedFor.getSlot() != null )
-                {
-                    if( moduleSlot.startsWith(lookedFor.getSlot()) )
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-        return moduleSpecIdentifier.equals(lookedFor);
-        */
-    }
-
-
-    private Object safeInvoke(Object target, String methodName)
-    {
-        try{
-            if( target != null ){
-                Method method = target.getClass().getMethod(methodName);
-                if( method != null ){
-                    method.setAccessible(true);
-                    return method.invoke(target);
-                }
-            }
-        }
-        catch(Exception e){
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
 
     /**
      * Find an already-loaded module, returning {@code null} if the module isn't currently loaded.  May block
@@ -429,7 +348,7 @@ public abstract class ModuleLoader {
         }
         final ModuleIdentifier id = module.getIdentifier();
         final FutureModule futureModule = moduleMap.get(id);
-        if (futureModule.module == module) {
+        if (futureModule != null && futureModule.module != null && futureModule.module == module) {
             moduleMap.remove(id, futureModule);
         }
     }
