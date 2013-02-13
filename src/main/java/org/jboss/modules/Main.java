@@ -102,6 +102,25 @@ public final class Main {
      */
     public static void main(String[] args) throws Throwable {
         final int argsLen = args.length;
+
+        // ### SEEBURGER extension to terminate existing processes
+        boolean killProcFlag = Boolean.getBoolean("terminate.existing.processes");
+        if (killProcFlag)
+        {
+            //Terminate existing running processes if needed
+            for (int i = 0; i < argsLen; i++)
+            {
+                if (args[i] != null && "org.jboss.as.process-controller".equals(args[i]))
+                {
+                    int terminated = terminateRunningProcesses();
+                    System.out.println("Existing processes terminated " +
+                                    ((terminated == 0) ? "successfully." : "with warnings."));
+                    break;
+                }
+            }
+        }
+        // ### end of SEEBURGER extension to terminate existing processes
+
         String deps = null;
         String[] moduleArgs = NO_STRINGS;
         String modulePath = null;
@@ -299,11 +318,11 @@ public final class Main {
         }
         else
         {
-        	String instanceId = System.getProperty("instanceid");
-        	if (instanceId != null)
-        	{
+            String instanceId = System.getProperty("instanceid");
+            if (instanceId != null)
+            {
                 pidName = instanceId  + ".pid";
-        	}
+            }
         }
 
         if (pidName != null)
@@ -412,6 +431,38 @@ public final class Main {
      */
     public static String getVersionString() {
         return VERSION_STRING;
+    }
+
+
+    /**
+     * ### SEEBURGER extension to terminate existing processes.
+     * @return the exit value of the subprocess represented by this Process object. By convention, the value 0 indicates normal termination.
+     */
+    private static int terminateRunningProcesses()
+    {
+        String shutdownScript;
+        String os = System.getProperty("os.name");
+        if (os != null && os.toLowerCase().startsWith("windows"))
+        {
+            shutdownScript = "shutdown-bisas.bat";
+        }
+        else
+        {
+            shutdownScript = "shutdown-bisas.sh";
+        }
+
+        try
+        {
+            System.out.println("Terminating old running processes...");
+            String path = System.getenv("JBOSS_HOME") + "/bin/";
+            Process pr = Runtime.getRuntime().exec(path + shutdownScript+ " 0");
+            return pr.waitFor();
+        }
+        catch (Exception exc)
+        {
+            exc.printStackTrace(System.err);
+            return 1;
+        }
     }
 
 
