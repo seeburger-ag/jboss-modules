@@ -21,11 +21,9 @@
  */
 
 package org.jboss.modules;
-
-import __redirected.__JAXPRedirected;
-
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,10 +35,12 @@ import java.security.PrivilegedAction;
 import java.util.Enumeration;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.logging.LogManager;
 
-import java.util.jar.Manifest;
 import org.jboss.modules.log.JDKModuleLogger;
+
+import __redirected.__JAXPRedirected;
 
 /**
  * The main entry point of JBoss Modules when run as a JAR on the command line.
@@ -58,6 +58,8 @@ public final class Main {
     }
 
     private static final String[] NO_STRINGS = new String[0];
+
+    private final static String BISAS_PROPERTY_NAME = "bisas.pid";
 
     private Main() {
     }
@@ -286,6 +288,29 @@ public final class Main {
             ManagementFactory.getPlatformMBeanServer();
         }
 
+        String pidName = null;
+        if (moduleIdentifierOrExeName.contains("host"))
+        {
+            pidName = "host-controller.pid";
+        }
+        else if (moduleIdentifierOrExeName.contains("process"))
+        {
+            pidName = "process-controller.pid";
+        }
+        else
+        {
+		String instanceId = System.getProperty("instanceid");
+		if (instanceId != null)
+		{
+                pidName = instanceId  + ".pid";
+		}
+        }
+
+        if (pidName != null)
+        {
+            writePid(pidName);
+        }
+
         try {
             ModuleLoader.installMBeanServer();
             module.run(moduleArgs);
@@ -387,5 +412,64 @@ public final class Main {
      */
     public static String getVersionString() {
         return VERSION_STRING;
+    }
+
+
+    private static void writePid(String pidName) throws Exception
+    {
+        String pid = ManagementFactory.getRuntimeMXBean().getName();
+
+        if (null == pid || pid.length() < 1)
+        {
+            System.out.println("Cannot determine pid.");
+            return;
+        }
+
+        int posSep = pid.indexOf('@');
+        if (-1 != posSep)
+        {
+            pid = pid.substring(0, posSep);
+        }
+
+        try
+        {
+            Long.parseLong(pid);
+        }
+        catch (NumberFormatException ne)
+        {
+            System.out.println("Determined pid=" + pid + " is not usable because it contains non numeric characters.");
+            return;
+        }
+
+        System.setProperty(BISAS_PROPERTY_NAME, pid);
+
+        File pidFile = new File(pidName).getAbsoluteFile();
+        pidFile.delete();
+
+        File parentFile = pidFile.getParentFile();
+
+        if ((parentFile != null) && !parentFile.exists())
+        {
+            parentFile.mkdirs();
+        }
+
+        FileOutputStream outStream = null;
+        try
+        {
+            // this should use some locking and atomic renames
+            outStream = new FileOutputStream(pidFile);
+            outStream.write(pid.getBytes());
+            outStream.close();
+            outStream = null;
+
+            System.out.println("Determined pid=" + pid + " was written to file=" + pidFile);
+        }
+        finally
+        {
+            if (null != outStream)
+            {
+                outStream.close();
+            }
+        }
     }
 }
