@@ -318,7 +318,7 @@ public final class Main {
         }
         else
         {
-            String instanceId = System.getProperty("instanceid");
+            String instanceId = System.getProperty("instance.id");
             if (instanceId != null)
             {
                 pidName = instanceId  + ".pid";
