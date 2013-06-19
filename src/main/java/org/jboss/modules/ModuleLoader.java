@@ -343,7 +343,7 @@ public abstract class ModuleLoader {
         }
         final ModuleIdentifier id = module.getIdentifier();
         final FutureModule futureModule = moduleMap.get(id);
-        if (futureModule.module == module) {
+        if (futureModule != null && futureModule.module != null && futureModule.module == module) {
             moduleMap.remove(id, futureModule);
         }
     }
