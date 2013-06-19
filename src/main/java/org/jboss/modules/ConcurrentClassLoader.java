@@ -28,8 +28,10 @@ import java.lang.reflect.Field;
 import java.net.URL;
 import java.security.AccessControlContext;
 import java.security.AccessController;
+import java.security.CodeSource;
 import java.security.PrivilegedExceptionAction;
 import java.security.ProtectionDomain;
+import java.security.SecureClassLoader;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +49,7 @@ import sun.misc.Unsafe;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public abstract class ConcurrentClassLoader extends ClassLoader {
+public abstract class ConcurrentClassLoader extends SecureClassLoader {
 
     private static final boolean LOCKLESS;
     private static final boolean SAFE_JDK;
@@ -57,12 +59,8 @@ public abstract class ConcurrentClassLoader extends ClassLoader {
     private static final ThreadLocal<Boolean> GET_PACKAGE_SUPPRESSOR = new ThreadLocal<Boolean>();
 
     static {
-        try {
-            ClassLoader.registerAsParallelCapable();
-        } catch (Throwable ignored) {
-        }
         /*
-         This resolves a known deadlock that can occur if one thread is in the process of defining a package as part of
+         This resolves a know deadlock that can occur if one thread is in the process of defining a package as part of
          defining a class, and another thread is defining the system package that can result in loading a class.  One holds
          the Package.pkgs lock and one holds the Classloader lock.
         */
@@ -82,6 +80,10 @@ public abstract class ConcurrentClassLoader extends ClassLoader {
         LOCKLESS = Boolean.parseBoolean(AccessController.doPrivileged(new PropertyReadAction("jboss.modules.lockless", Boolean.toString(is16 && hasUnsafe && ! isJRockit))));
         // If the JDK has safe CL, set this flag
         SAFE_JDK = Boolean.parseBoolean(AccessController.doPrivileged(new PropertyReadAction("jboss.modules.safe-jdk", Boolean.toString(isJRockit))));
+        try {
+            ClassLoader.registerAsParallelCapable();
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
@@ -182,6 +184,29 @@ public abstract class ConcurrentClassLoader extends ClassLoader {
     protected final Class<?> defineOrLoadClass(final String className, final byte[] bytes, int off, int len) {
         try {
             final Class<?> definedClass = defineClass(className, bytes, off, len);
+            return definedClass;
+        } catch (LinkageError e) {
+            final Class<?> loadedClass = findLoadedClass(className);
+            if (loadedClass != null) {
+                return loadedClass;
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Atomically define or load the named class.  If the class is already defined, the existing class is returned.
+     *
+     * @param className the class name to define or load
+     * @param bytes the bytes to use to define the class
+     * @param off the offset into the byte array at which the class bytes begin
+     * @param len the number of bytes in the class
+     * @param codeSource the code source for the defined class
+     * @return the class
+     */
+    protected final Class<?> defineOrLoadClass(final String className, final byte[] bytes, int off, int len, CodeSource codeSource) {
+        try {
+            final Class<?> definedClass = defineClass(className, bytes, off, len, codeSource);
             return definedClass;
         } catch (LinkageError e) {
             final Class<?> loadedClass = findLoadedClass(className);
