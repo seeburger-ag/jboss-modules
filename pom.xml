@@ -25,9 +25,9 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.jboss.modules</groupId>
+    <groupId>com.seeburger.as</groupId>
     <artifactId>jboss-modules</artifactId>
-    <version>1.1.4.GA</version>
+    <version>1.1.4.SEE1-SNAPSHOT</version>
     <name>JBoss Modules</name>
 
     <parent>
@@ -35,6 +35,12 @@
         <artifactId>jboss-parent</artifactId>
         <version>7</version>
     </parent>
+
+    <scm>
+        <connection>scm:git:git@github.com:seeburger-ag/jboss-modules.git</connection>
+        <developerConnection>scm:git:git@github.com:seeburger-ag/jboss-modules.git</developerConnection>
+        <url>https://github.com/seeburger-ag/jboss-modules</url>
+    </scm>
 
     <licenses>
         <license>
