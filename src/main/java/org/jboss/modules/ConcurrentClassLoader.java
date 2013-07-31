@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Queue;
+
 import sun.misc.Unsafe;
 
 /**
@@ -59,8 +60,12 @@ public abstract class ConcurrentClassLoader extends SecureClassLoader {
     private static final ThreadLocal<Boolean> GET_PACKAGE_SUPPRESSOR = new ThreadLocal<Boolean>();
 
     static {
+        try {
+            ClassLoader.registerAsParallelCapable();
+        } catch (Throwable ignored) {
+        }
         /*
-         This resolves a know deadlock that can occur if one thread is in the process of defining a package as part of
+         This resolves a known deadlock that can occur if one thread is in the process of defining a package as part of
          defining a class, and another thread is defining the system package that can result in loading a class.  One holds
          the Package.pkgs lock and one holds the Classloader lock.
         */
@@ -80,10 +85,6 @@ public abstract class ConcurrentClassLoader extends SecureClassLoader {
         LOCKLESS = Boolean.parseBoolean(AccessController.doPrivileged(new PropertyReadAction("jboss.modules.lockless", Boolean.toString(is16 && hasUnsafe && ! isJRockit))));
         // If the JDK has safe CL, set this flag
         SAFE_JDK = Boolean.parseBoolean(AccessController.doPrivileged(new PropertyReadAction("jboss.modules.safe-jdk", Boolean.toString(isJRockit))));
-        try {
-            ClassLoader.registerAsParallelCapable();
-        } catch (Throwable ignored) {
-        }
     }
 
     /**
@@ -386,6 +387,15 @@ public abstract class ConcurrentClassLoader extends SecureClassLoader {
      * @throws ClassNotFoundException if {@link #findClass(String, boolean, boolean)} throws this exception
      */
     private Class<?> performLoadClass(String className, boolean exportsOnly, final boolean resolve) throws ClassNotFoundException {
+
+        // Check if we have already loaded it..
+        Class<?> loadedClass = findLoadedClass(className);
+        if (loadedClass != null) {
+            if (resolve) {
+                resolveClass(loadedClass);
+            }
+            return loadedClass;
+        }
 
         if (className == null) {
             throw new IllegalArgumentException("name is null");
