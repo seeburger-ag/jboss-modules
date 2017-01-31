@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.jboss.modules.filter.PathFilter;
 import org.jboss.modules.log.ModuleLogger;
@@ -69,6 +70,8 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
     private final ClassFileTransformer transformer;
 
     private volatile Paths<ResourceLoader, ResourceLoaderSpec> paths;
+
+    private ReentrantLock packageLock = new ReentrantLock();
 
     private final LocalLoader localLoader = new LocalLoader() {
         public Class<?> loadClassLocal(final String name, final boolean resolve) {
@@ -366,21 +369,29 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
         if (lastIdx != -1) {
             // there's a package name; get the Package for it
             final String packageName = name.substring(0, lastIdx);
-            synchronized (this) {
-                Package pkg = findLoadedPackage(packageName);
-                if (pkg == null) {
-                    try {
-                        pkg = definePackage(packageName, resourceLoader.getPackageSpec(packageName));
-                    } catch (IOException e) {
-                        pkg = definePackage(packageName, null);
+            Package pkg = findLoadedPackage(packageName);
+            if (pkg == null) {
+                packageLock.lock();
+                try {
+                    // re-get inside locked context to not define twice
+                    pkg = findLoadedPackage(packageName);
+                    if (pkg == null) {
+                        try {
+                            pkg = definePackage(packageName, resourceLoader.getPackageSpec(packageName));
+                        } catch (IOException e) {
+                            pkg = definePackage(packageName, null);
+                        }
                     }
                 }
-                // Check sealing
-                if (pkg.isSealed() && ! pkg.isSealed(classSpec.getCodeSource().getLocation())) {
-                    log.trace("Detected a sealing violation (attempt to define class %s in sealed package %s in %s)", name, packageName, module);
-                    // use the same message as the JDK
-                    throw new SecurityException("sealing violation: package " + packageName + " is sealed");
+                finally {
+                    packageLock.unlock();
                 }
+            }
+            // Check sealing
+            if (pkg.isSealed() && ! pkg.isSealed(classSpec.getCodeSource().getLocation())) {
+                log.trace("Detected a sealing violation (attempt to define class %s in sealed package %s in %s)", name, packageName, module);
+                // use the same message as the JDK
+                throw new SecurityException("sealing violation: package " + packageName + " is sealed");
             }
         }
         final Class<?> newClass;
