@@ -22,13 +22,9 @@
 
 package org.jboss.modules;
 
-import org.jboss.modules.filter.PathFilter;
-import org.jboss.modules.log.ModuleLogger;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
 import java.net.URL;
 import java.security.CodeSource;
 import java.security.PermissionCollection;
@@ -40,6 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
+import org.jboss.modules.filter.PathFilter;
+import org.jboss.modules.log.ModuleLogger;
 
 /**
  * A module classloader.  Instances of this class implement the complete view of classes and resources available in a
@@ -54,9 +53,13 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 public class ModuleClassLoader extends ConcurrentClassLoader {
 
     static {
+        boolean parallelOk = true;
         try {
-            ClassLoader.registerAsParallelCapable();
+            parallelOk = ClassLoader.registerAsParallelCapable();
         } catch (Throwable ignored) {
+        }
+        if (! parallelOk) {
+            throw new Error("Failed to register " + ModuleClassLoader.class.getName() + " as parallel-capable");
         }
     }
 
@@ -72,6 +75,13 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
             try {
                 return ModuleClassLoader.this.loadClassLocal(name, resolve);
             } catch (ClassNotFoundException e) {
+                final Throwable cause = e.getCause();
+                if (cause instanceof Error) {
+                    throw (Error) cause;
+                } else if (cause instanceof RuntimeException) {
+                    //unlikely
+                    throw (RuntimeException) cause;
+                }
                 return null;
             }
         }
@@ -261,7 +271,7 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
             throw new ClassNotFoundException(className, e);
         } catch (Error e) {
             log.trace(e, "Unexpected error in module loader");
-            throw new ClassNotFoundException(className, e);
+            throw e;
         }
         log.trace("No local specification found for class %s in %s", className, module);
         return null;
@@ -381,7 +391,7 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
                     try {
                         // todo: support protection domain
                         bytes = transformer.transform(this, name.replace('.', '/'), null, null, bytes);
-                    } catch (IllegalClassFormatException e) {
+                    } catch (Exception e) {
                         ClassFormatError error = new ClassFormatError(e.getMessage());
                         error.initCause(e);
                         throw error;

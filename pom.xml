@@ -121,7 +121,7 @@
                 <executions>
                     <execution>
                         <!-- Enforce Java 7 version -->
-                        <id>enforce-java-7-version</id>
+                        <id>enforce-java-8-version</id>
                         <goals>
                             <goal>enforce</goal>
                         </goals>
@@ -130,8 +130,8 @@
                             <rules>
                                 <requireJavaVersion>
                                     <!-- version >= 1.7 -->
-                                    <version>[1.7,)</version>
-                                    <message>Java 7 or higher required to build this project</message>
+                                    <version>[1.8,)</version>
+                                    <message>Java 8 or higher required to build this project</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
