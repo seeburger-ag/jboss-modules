@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -76,7 +77,7 @@ public abstract class ModuleLoader {
 
     private static volatile MBeanReg REG_REF = new TempMBeanReg();
 
-    private final ConcurrentMap<ModuleIdentifier, FutureModule> moduleMap = new UnlockedReadHashMap<ModuleIdentifier, FutureModule>(256);
+    private final ConcurrentMap<ModuleIdentifier, FutureModule> moduleMap = new ConcurrentHashMap<ModuleIdentifier, FutureModule>();
 
     private final boolean canRedefine;
     private final ModuleLoaderMXBean mxBean;
