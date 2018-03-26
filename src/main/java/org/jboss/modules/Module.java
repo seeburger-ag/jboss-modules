@@ -551,7 +551,7 @@ public final class Module {
                 return moduleClassLoader.getResource(canonPath);
             }
         }
-        log.trace("Attempting to find resource %s in %s", canonPath, this);
+//        log.trace("Attempting to find resource %s in %s", canonPath, this);
         final String path = pathOf(canonPath);
         final Map<String, List<LocalLoader>> paths = getPathsUnchecked(exportsOnly);
         final List<LocalLoader> loaders = paths.get(path);
@@ -591,7 +591,7 @@ public final class Module {
                 }
             }
         }
-        log.trace("Attempting to find all resources %s in %s", canonPath, this);
+//        log.trace("Attempting to find all resources %s in %s", canonPath, this);
         final String path = pathOf(canonPath);
         final Map<String, List<LocalLoader>> paths = getPathsUnchecked(exportsOnly);
         final List<LocalLoader> loaders = paths.get(path);
