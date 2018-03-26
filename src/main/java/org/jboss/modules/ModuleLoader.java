@@ -282,24 +282,30 @@ public abstract class ModuleLoader {
             if ( moduleSpec instanceof AliasModuleSpec) {
                 final ModuleIdentifier aliasTarget = ((AliasModuleSpec) moduleSpec).getAliasTarget();
                 try {
-                    newFuture.setModule(module = loadModuleLocal(aliasTarget));
+                    final Module aliasedModule = loadModuleLocal(aliasTarget);
+                    if (aliasedModule == null) {
+                        throw new ModuleLoadException("Alias module " + aliasTarget + " is referencing not existing module");
+                    }
+                    newFuture.setModule(module = aliasedModule);
+                    log.trace("Added module %s as alias of %s from %s", identifier, aliasTarget, this);
+                    ok = true;
                 } catch (RuntimeException e) {
-                    log.trace(e, "Failed to load module %s (alias for %s)", identifier, aliasTarget);
+                    System.err.printf("Failed to load module %s (alias for %s) %s", identifier, aliasTarget, e.toString());
                     throw e;
                 } catch (Error e) {
-                    log.trace(e, "Failed to load module %s (alias for %s)", identifier, aliasTarget);
+                    System.err.printf("Failed to load module %s (alias for %s) %s", identifier, aliasTarget, e.toString());
                     throw e;
                 }
             } else {
                 module = defineModule((ConcreteModuleSpec) moduleSpec, newFuture);
+                log.trace("Loaded module %s from %s", identifier, this);
+                ok = true;
             }
-            log.trace("Loaded module %s from %s", identifier, this);
-            ok = true;
             return module;
         } finally {
             if (! ok) {
-                newFuture.setModule(null);
                 moduleMap.remove(identifier, newFuture);
+                newFuture.setModule(null);
             }
         }
     }
