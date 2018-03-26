@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.jboss.modules.filter.PathFilter;
-import org.jboss.modules.log.ModuleLogger;
 
 /**
  * A module classloader.  Instances of this class implement the complete view of classes and resources available in a
@@ -188,9 +187,7 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
             }
             return loadedClass;
         }
-        final ModuleLogger log = Module.log;
         final Module module = this.module;
-        log.trace("Finding class %s from %s", className, module);
 
         final Class<?> clazz = module.loadModuleClass(className, exportsOnly, resolve);
 
@@ -198,9 +195,10 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
             return clazz;
         }
 
-        log.trace("Class %s not found from %s", className, module);
 
-        throw new ClassNotFoundException(className + " from [" + module + "]");
+        // do not pass "module" here, since its toString may call findClass recursively
+        final String identifierName = module.getIdentifier().getName();
+        throw new ClassNotFoundException(className + " from [" + identifierName + "]");
     }
 
     /**
@@ -212,14 +210,11 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
      * @throws ClassNotFoundException if an error occurs while loading the class
      */
     Class<?> loadClassLocal(final String className, final boolean resolve) throws ClassNotFoundException {
-        final ModuleLogger log = Module.log;
         final Module module = this.module;
-        log.trace("Finding local class %s from %s", className, module);
 
         // Check if we have already loaded it..
         Class<?> loadedClass = findLoadedClass(className);
         if (loadedClass != null) {
-            log.trace("Found previously loaded %s from %s", loadedClass, module);
             if (resolve) {
                 resolveClass(loadedClass);
             }
@@ -227,8 +222,6 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
         }
 
         final Map<String, List<ResourceLoader>> paths = this.paths.getAllPaths();
-
-        log.trace("Loading class %s locally from %s", className, module);
 
         String pathOfClass = Module.pathOfClass(className);
         final List<ResourceLoader> loaders = paths.get(pathOfClass);
@@ -270,13 +263,10 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
         } catch (IOException e) {
             throw new ClassNotFoundException(className, e);
         } catch (RuntimeException e) {
-            log.trace(e, "Unexpected runtime exception in module loader");
             throw new ClassNotFoundException(className, e);
         } catch (Error e) {
-            log.trace(e, "Unexpected error in module loader");
             throw e;
         }
-        log.trace("No local specification found for class %s in %s", className, module);
         return null;
     }
 
@@ -360,9 +350,7 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
      * @return the new class
      */
     private Class<?> defineClass(final String name, final ClassSpec classSpec, final ResourceLoader resourceLoader) {
-        final ModuleLogger log = Module.log;
         final Module module = this.module;
-        log.trace("Attempting to define class %s in %s", name, module);
 
         // Ensure that the package is loaded
         final int lastIdx = name.lastIndexOf('.');
@@ -389,7 +377,6 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
             }
             // Check sealing
             if (pkg.isSealed() && ! pkg.isSealed(classSpec.getCodeSource().getLocation())) {
-                log.trace("Detected a sealing violation (attempt to define class %s in sealed package %s in %s)", name, packageName, module);
                 // use the same message as the JDK
                 throw new SecurityException("sealing violation: package " + packageName + " is sealed");
             }
@@ -411,7 +398,6 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
                 final long start = Metrics.getCurrentCPUTime();
                 newClass = doDefineOrLoadClass(name, bytes, 0, bytes.length, classSpec.getCodeSource());
                 module.getModuleLoader().addClassLoadTime(Metrics.getCurrentCPUTime() - start);
-                log.classDefined(name, module);
             } catch (NoClassDefFoundError e) {
                 // Prepend the current class name, so that transitive class definition issues are clearly expressed
                 final LinkageError ne = new LinkageError("Failed to link " + name.replace('.', '/') + " (" + module + ")");
@@ -419,10 +405,8 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
                 throw ne;
             }
         } catch (Error e) {
-            log.classDefineFailed(e, name, module);
             throw e;
         } catch (RuntimeException e) {
-            log.classDefineFailed(e, name, module);
             throw e;
         }
         final AssertionSetting setting = classSpec.getAssertionSetting();
@@ -460,10 +444,6 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
      * @return the new package
      */
     private Package definePackage(final String name, final PackageSpec spec) {
-        final Module module = this.module;
-        final ModuleLogger log = Module.log;
-        log.trace("Attempting to define package %s in %s", name, module);
-
         final Package pkg;
         if (spec == null) {
             pkg = definePackage(name, null, null, null, null, null, null, null);
@@ -474,7 +454,6 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
                 setPackageAssertionStatus(name, setting == AssertionSetting.ENABLED);
             }
         }
-        log.trace("Defined package %s in %s", name, module);
         return pkg;
     }
 
@@ -486,9 +465,6 @@ public class ModuleClassLoader extends ConcurrentClassLoader {
      */
     @Override
     protected final String findLibrary(final String libname) {
-        final ModuleLogger log = Module.log;
-        log.trace("Attempting to load native library %s from %s", libname, module);
-
         for (ResourceLoaderSpec loader : paths.getSourceList(NO_RESOURCE_LOADERS)) {
             final String library = loader.getResourceLoader().getLibrary(libname);
             if (library != null) {
