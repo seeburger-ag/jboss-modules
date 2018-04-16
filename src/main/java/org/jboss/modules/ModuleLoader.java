@@ -267,12 +267,12 @@ public abstract class ModuleLoader {
         boolean ok = false;
         try {
             final ModuleLogger log = Module.log;
-            log.trace("Locally loading module %s from %s", identifier, this);
+            System.out.printf("Locally loading module %s from %s", identifier, this);
             final long startTime = Metrics.getCurrentCPUTime();
             final ModuleSpec moduleSpec = findModule(identifier);
             loadTimeUpdater.addAndGet(this, Metrics.getCurrentCPUTime() - startTime);
             if (moduleSpec == null) {
-                log.trace("Module %s not found from %s", identifier, this);
+                System.err.printf("Module %s not found from %s", identifier, this);
                 return null;
             }
             if (! moduleSpec.getModuleIdentifier().equals(identifier)) {
@@ -284,6 +284,7 @@ public abstract class ModuleLoader {
                 try {
                     final Module aliasedModule = loadModuleLocal(aliasTarget);
                     if (aliasedModule == null) {
+                        System.err.printf("Alias module %s is referencing not existing module", aliasTarget);
                         throw new ModuleLoadException("Alias module " + aliasTarget + " is referencing not existing module");
                     }
                     newFuture.setModule(module = aliasedModule);
@@ -302,6 +303,12 @@ public abstract class ModuleLoader {
                 ok = true;
             }
             return module;
+        } catch (ModuleLoadException ex) {
+            System.err.printf("Failed to load module %s %s", identifier, ex.toString());
+            throw ex;
+        } catch (RuntimeException ex) {
+            System.err.printf("Failed to load module %s %s", identifier, ex.toString());
+            throw ex;
         } finally {
             if (! ok) {
                 moduleMap.remove(identifier, newFuture);
