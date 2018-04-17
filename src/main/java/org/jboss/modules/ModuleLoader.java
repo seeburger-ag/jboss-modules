@@ -267,12 +267,12 @@ public abstract class ModuleLoader {
         boolean ok = false;
         try {
             final ModuleLogger log = Module.log;
-            System.out.printf("Locally loading module %s from %s", identifier, this);
+            System.out.printf("Locally loading module %s from %s%n", identifier, this);
             final long startTime = Metrics.getCurrentCPUTime();
             final ModuleSpec moduleSpec = findModule(identifier);
             loadTimeUpdater.addAndGet(this, Metrics.getCurrentCPUTime() - startTime);
             if (moduleSpec == null) {
-                System.err.printf("Module %s not found from %s", identifier, this);
+                System.err.printf("Module %s not found from %s%n", identifier, this);
                 return null;
             }
             if (! moduleSpec.getModuleIdentifier().equals(identifier)) {
@@ -284,17 +284,17 @@ public abstract class ModuleLoader {
                 try {
                     final Module aliasedModule = loadModuleLocal(aliasTarget);
                     if (aliasedModule == null) {
-                        System.err.printf("Alias module %s is referencing not existing module", aliasTarget);
+                        System.err.printf("Alias module %s is referencing not existing module%n", aliasTarget);
                         throw new ModuleLoadException("Alias module " + aliasTarget + " is referencing not existing module");
                     }
                     newFuture.setModule(module = aliasedModule);
                     log.trace("Added module %s as alias of %s from %s", identifier, aliasTarget, this);
                     ok = true;
                 } catch (RuntimeException e) {
-                    System.err.printf("Failed to load module %s (alias for %s) %s", identifier, aliasTarget, e.toString());
+                    System.err.printf("Failed to load module %s (alias for %s) %s%n", identifier, aliasTarget, e.toString());
                     throw e;
                 } catch (Error e) {
-                    System.err.printf("Failed to load module %s (alias for %s) %s", identifier, aliasTarget, e.toString());
+                    System.err.printf("Failed to load module %s (alias for %s) %s%n", identifier, aliasTarget, e.toString());
                     throw e;
                 }
             } else {
@@ -304,10 +304,10 @@ public abstract class ModuleLoader {
             }
             return module;
         } catch (ModuleLoadException ex) {
-            System.err.printf("Failed to load module %s %s", identifier, ex.toString());
+            System.err.printf("Failed to load module %s %s%n", identifier, ex.toString());
             throw ex;
         } catch (RuntimeException ex) {
-            System.err.printf("Failed to load module %s %s", identifier, ex.toString());
+            System.err.printf("Failed to load module %s %s%n", identifier, ex.toString());
             throw ex;
         } finally {
             if (! ok) {
