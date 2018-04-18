@@ -25,7 +25,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.seeburger.as</groupId>
     <artifactId>jboss-modules</artifactId>
-    <version>1.1.4.SEE6</version>
+    <version>1.1.4.SEE7-SNAPSHOT</version>
     <name>JBoss Modules</name>
 
     <parent>
