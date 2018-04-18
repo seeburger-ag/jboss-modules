@@ -264,15 +264,15 @@ public abstract class ModuleLoader {
             return futureModule.getModule();
         }
 
+        final ModuleLogger log = Module.log;
         boolean ok = false;
         try {
-            final ModuleLogger log = Module.log;
-            System.out.printf("Locally loading module %s from %s%n", identifier, this);
+            log.trace("Locally loading module %s from %s", identifier, this);
             final long startTime = Metrics.getCurrentCPUTime();
             final ModuleSpec moduleSpec = findModule(identifier);
             loadTimeUpdater.addAndGet(this, Metrics.getCurrentCPUTime() - startTime);
             if (moduleSpec == null) {
-                System.err.printf("Module %s not found from %s%n", identifier, this);
+                System.err.printf("Module spec for %s not found from %s%n", identifier, this);
                 return null;
             }
             if (! moduleSpec.getModuleIdentifier().equals(identifier)) {
@@ -284,17 +284,17 @@ public abstract class ModuleLoader {
                 try {
                     final Module aliasedModule = loadModuleLocal(aliasTarget);
                     if (aliasedModule == null) {
-                        System.err.printf("Alias module %s is referencing not existing module%n", aliasTarget);
+                        log.trace("Alias module %s is referencing not existing module. %s", aliasTarget, this);
                         throw new ModuleLoadException("Alias module " + aliasTarget + " is referencing not existing module");
                     }
                     newFuture.setModule(module = aliasedModule);
                     log.trace("Added module %s as alias of %s from %s", identifier, aliasTarget, this);
                     ok = true;
                 } catch (RuntimeException e) {
-                    System.err.printf("Failed to load module %s (alias for %s) %s%n", identifier, aliasTarget, e.toString());
+                    log.trace("Failed to load module %s (alias for %s) %s in %s", identifier, aliasTarget, e, this);
                     throw e;
                 } catch (Error e) {
-                    System.err.printf("Failed to load module %s (alias for %s) %s%n", identifier, aliasTarget, e.toString());
+                    log.trace("Failed to load module %s (alias for %s) %s in %s", identifier, aliasTarget, e, this);
                     throw e;
                 }
             } else {
@@ -304,10 +304,10 @@ public abstract class ModuleLoader {
             }
             return module;
         } catch (ModuleLoadException ex) {
-            System.err.printf("Failed to load module %s %s%n", identifier, ex.toString());
+            log.trace("Failed to load module %s %s from %s", identifier, ex, this);
             throw ex;
         } catch (RuntimeException ex) {
-            System.err.printf("Failed to load module %s %s%n", identifier, ex.toString());
+            log.trace("Failed to load module %s %s from %s", identifier, ex, this);
             throw ex;
         } finally {
             if (! ok) {
@@ -353,7 +353,8 @@ public abstract class ModuleLoader {
     protected final void unloadModuleLocal(Module module) throws SecurityException {
         final ModuleLoader moduleLoader = module.getModuleLoader();
         if (moduleLoader != this) {
-            throw new SecurityException("Attempted to unload " + module + " from a different module loader");
+            throw new SecurityException("Attempted to unload " + module + " from a different module loader \"" + moduleLoader +
+                                        "\" than this " + this);
         }
         final ModuleIdentifier id = module.getIdentifier();
         final FutureModule futureModule = moduleMap.get(id);
@@ -397,10 +398,10 @@ public abstract class ModuleLoader {
             futureModule.setModule(module);
             return module;
         } catch (RuntimeException e) {
-            log.trace(e, "Failed to load module %s", moduleIdentifier);
+            log.trace(e, "Failed to set module %s %s in %s", moduleIdentifier, e, this);
             throw e;
         } catch (Error e) {
-            log.trace(e, "Failed to load module %s", moduleIdentifier);
+            log.trace(e, "Failed to set module %s %s in %s", moduleIdentifier, e, this);
             throw e;
         }
     }
@@ -771,7 +772,7 @@ public abstract class ModuleLoader {
             try {
                 final Module module = loader.findLoadedModuleLocal(ModuleIdentifier.fromString(name));
                 if (module == null) {
-                    throw new IllegalArgumentException("Module " + name + " not found");
+                    throw new IllegalArgumentException("Module " + name + " not found in " + this);
                 }
                 return module;
             } catch (ModuleLoadError e) {
