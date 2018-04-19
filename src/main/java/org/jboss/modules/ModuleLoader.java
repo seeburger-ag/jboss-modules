@@ -102,6 +102,8 @@ public abstract class ModuleLoader {
     private static final AtomicIntegerFieldUpdater<ModuleLoader> raceCountUpdater = AtomicIntegerFieldUpdater.newUpdater(ModuleLoader.class, "raceCount");
     private static final AtomicIntegerFieldUpdater<ModuleLoader> classCountUpdater = AtomicIntegerFieldUpdater.newUpdater(ModuleLoader.class, "classCount");
 
+    private static final long LOAD_RETRY_TIME = Long.getLong("org.jboss.modules.ModuleLoader.LOAD_RETRY_TIME", 3000);
+
     // Bypass security check for classes in this package
     ModuleLoader(boolean canRedefine, boolean skipRegister) {
         this.canRedefine = canRedefine;
@@ -198,12 +200,32 @@ public abstract class ModuleLoader {
      * @throws ModuleLoadException if the Module can not be loaded
      */
     public final Module loadModule(ModuleIdentifier identifier) throws ModuleLoadException {
-        final Module module = preloadModule(identifier);
-        if (module == null) {
-            throw new ModuleNotFoundException(identifier.toString());
+        final long deadLine = System.currentTimeMillis() + LOAD_RETRY_TIME;
+        while (true) {
+            try {
+                Module module = preloadModule(identifier);
+                if (module == null) {
+                    throw new ModuleNotFoundException(identifier.toString());
+                }
+                module.relinkIfNecessary();
+                return module;
+            }
+            catch (ModuleLoadException ex) {
+                // [issue_b#80892] try once more since ModuleNotFoundException may arise due to dependencies getting registered too late
+                // "jbosgi.framework" is excluded, since this may appear thousands of times
+                if ("jbosgi.framework".equals(identifier.getName()) ||  deadLine < System.currentTimeMillis()) {
+                    throw ex;
+                }
+                try
+                {
+                    Thread.sleep(100);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.interrupted();
+                }
+            }
         }
-        module.relinkIfNecessary();
-        return module;
     }
 
     /**
