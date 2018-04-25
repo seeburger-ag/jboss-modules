@@ -294,7 +294,7 @@ public abstract class ModuleLoader {
             final ModuleSpec moduleSpec = findModule(identifier);
             loadTimeUpdater.addAndGet(this, Metrics.getCurrentCPUTime() - startTime);
             if (moduleSpec == null) {
-                System.err.printf("Module spec for %s not found from %s%n", identifier, this);
+                log.trace("Module spec for %s not found from %s", identifier, this);
                 return null;
             }
             if (! moduleSpec.getModuleIdentifier().equals(identifier)) {
